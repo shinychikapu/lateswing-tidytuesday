@@ -35,12 +35,3 @@ filter(`District Type` == "State Offices")
 
 federal_data <- combined_data |>
   filter(`District Type` == "Federal")
-
-
-unique(seattle_data$`Ballot Title`)
-unique(state_data$`Ballot Title`)
-unique(federal_data$`Ballot Title`)
-write_csv(seattle_data, "W:/election_forecast/seattle_data.csv")
-write_csv(state_data, "W:/election_forecast/state_data.csv")
-write_csv(federal_data, "W:/election_forecast/federal_data.csv")
-write_csv(combined_data, "W:/election_forecast/combined_data.csv")
