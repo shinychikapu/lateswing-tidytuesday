@@ -30,7 +30,7 @@ seattle_data <- combined_data |>
   filter(!str_detect(`Ballot Title`, "Proposition")) |>
   filter(!str_detect(`Ballot Title`, "Initiative"))
 
-# state_data <- combined_data |>
+state_data <- combined_data |>
 filter(`District Type` == "State Offices")
 
 federal_data <- combined_data |>
