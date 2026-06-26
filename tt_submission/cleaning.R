@@ -1,46 +1,51 @@
 library(dplyr)
 library(readr)
 library(purrr)
-
-base_path <- "G:/.shortcut-targets-by-id/1uONb6nTw9mTPgGMji1rvDZdVBoxD7_YY/forecasting-election-swings/data/king_county/"
-years <- 2016:2025
-
-all_files <- unlist(map(years, \(y) {
-  list.files(
-    path = file.path(base_path, y),
-    pattern = "\\.csv$",
-    full.names = TRUE
-  )
-}))
-
-# Exclude any file with "combined" in the filename
-all_files <- all_files[!grepl("combined", basename(all_files), ignore.case = TRUE)]
-
-combined_data <- map_dfr(all_files, function(file) {
-  read_csv(file) |>
-    mutate(
-      source_file = basename(file),
-      year_folder = basename(dirname(file))
-    )
-})
 library(stringr)
-seattle_data <- combined_data |>
-  filter(str_detect(`District Name`, "City of Seattle")) |>
-  filter(!str_detect(`Ballot Title`, "Municipal")) |>
-  filter(!str_detect(`Ballot Title`, "Proposition")) |>
-  filter(!str_detect(`Ballot Title`, "Initiative"))
+library(tidyr)
 
-state_data <- combined_data |>
-filter(`District Type` == "State Offices")
+parse_manifest_date <- \(date) {
+  date <- as.character(date)
+  parsed_date <- as.Date(date, format = "%Y-%m-%d")
+  missing_date <- is.na(parsed_date)
+  parsed_date[missing_date] <- as.Date(date[missing_date], format = "%m/%d/%Y")
+  parsed_date
+}
 
-federal_data <- combined_data |>
-  filter(`District Type` == "Federal")
+manifest <- read_csv(
+  "tt_submission/king_county_november_results_manifest.csv",
+  col_types = cols(
+    year = col_integer(),
+    date = col_character(),
+    url = col_character()
+  )
+) |>
+  mutate(date = parse_manifest_date(date))
 
+clean_column_names <- \(cols) {
+  cols |>
+    str_to_lower() |>
+    str_replace_all(" ", "_")
+}
 
-unique(seattle_data$`Ballot Title`)
-unique(state_data$`Ballot Title`)
-unique(federal_data$`Ballot Title`)
-write_csv(seattle_data, "W:/election_forecast/seattle_data.csv")
-write_csv(state_data, "W:/election_forecast/state_data.csv")
-write_csv(federal_data, "W:/election_forecast/federal_data.csv")
-write_csv(combined_data, "W:/election_forecast/combined_data.csv")
+combined_data <- manifest |>
+  filter(year >= 2022) |>
+  arrange(year, date) |>
+  mutate(
+    data = pmap(
+      list(url, date),
+      \(url, date) {
+        read_csv(url, show_col_types = FALSE) |>
+          rename_with(clean_column_names) |>
+          mutate(
+            report_date = date
+          )
+      }
+    )
+  ) |>
+  select(-url, -date) |>
+  unnest(data) |>
+  rename_with(clean_column_names) |>
+  group_by(year) |>
+  mutate(time_index = dense_rank(report_date)) |>
+  ungroup()
